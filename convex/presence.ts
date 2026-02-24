@@ -6,7 +6,7 @@ export const heartbeat = mutation({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      return null;
+      throw new Error("Unauthorized");
     }
 
     const me = await ctx.db

@@ -6,7 +6,7 @@ export const upsertCurrentUser = mutation({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      return null;
+      throw new Error("Unauthorized");
     }
 
     const fullName = [identity.givenName, identity.familyName]
