@@ -28,7 +28,7 @@ A real-time one-on-one chat app where users can sign up, discover other users, a
 - `convex/conversations.ts`: Conversation list + open/create direct conversation
 - `convex/messages.ts`: Real-time message list + send mutation
 - `lib/formatTimestamp.ts`: Timestamp formatting rules
-- `VIDEO_PRESENTATION_SCRIPT.md`: 2-3 minute demo script
+
 
 ## Environment Variables
 
