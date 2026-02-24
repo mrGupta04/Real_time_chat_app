@@ -64,15 +64,6 @@ export const listUsers = query({
       return [];
     }
 
-    const self = await ctx.db
-      .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!self) {
-      return [];
-    }
-
     const search = args.search?.trim().toLowerCase();
     const onlineThreshold = Date.now() - 30_000;
     const users = await ctx.db.query("users").collect();
@@ -92,7 +83,7 @@ export const listUsers = query({
     );
 
     return rows
-      .filter((user) => user._id !== self._id)
+      .filter((user) => user.clerkId !== identity.subject)
       .filter((user) => {
         if (!search) {
           return true;

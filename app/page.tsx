@@ -158,8 +158,15 @@ function ChatApp() {
 
   useEffect(() => {
     if (isSignedIn) {
-      void upsertCurrentUser({});
+      void upsertCurrentUser({}).catch(() => undefined);
+      const interval = window.setInterval(() => {
+        void upsertCurrentUser({}).catch(() => undefined);
+      }, 10_000);
+
+      return () => window.clearInterval(interval);
     }
+
+    return;
   }, [isSignedIn, upsertCurrentUser, user?.id]);
 
   useEffect(() => {
