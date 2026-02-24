@@ -133,6 +133,7 @@ function ChatApp() {
   ) as
     | UserRow[]
     | undefined;
+  const me = useQuery(api.users.me, isSignedIn ? {} : "skip");
   const conversations = useQuery(
     api.conversations.listForCurrentUser,
     isSignedIn ? {} : "skip",
@@ -157,17 +158,21 @@ function ChatApp() {
   ) as TypingUser[] | undefined;
 
   useEffect(() => {
-    if (isSignedIn) {
-      void upsertCurrentUser({}).catch(() => undefined);
-      const interval = window.setInterval(() => {
-        void upsertCurrentUser({}).catch(() => undefined);
-      }, 10_000);
-
-      return () => window.clearInterval(interval);
+    if (!isSignedIn) {
+      return;
     }
 
-    return;
-  }, [isSignedIn, upsertCurrentUser, user?.id]);
+    if (me) {
+      return;
+    }
+
+    void upsertCurrentUser({}).catch(() => undefined);
+    const interval = window.setInterval(() => {
+      void upsertCurrentUser({}).catch(() => undefined);
+    }, 2_000);
+
+    return () => window.clearInterval(interval);
+  }, [isSignedIn, me, upsertCurrentUser, user?.id]);
 
   useEffect(() => {
     if (!isSignedIn) {
