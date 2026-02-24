@@ -9,8 +9,13 @@ export const upsertCurrentUser = mutation({
       return null;
     }
 
+    const fullName = [identity.givenName, identity.familyName]
+      .filter((part): part is string => !!part && part.trim().length > 0)
+      .join(" ");
+
     const name =
       identity.name ??
+      (fullName.length > 0 ? fullName : undefined) ??
       identity.givenName ??
       identity.nickname ??
       identity.email?.split("@")[0] ??
@@ -88,7 +93,10 @@ export const listUsers = query({
         if (!search) {
           return true;
         }
-        return user.name.toLowerCase().includes(search);
+        return (
+          user.name.toLowerCase().includes(search) ||
+          user.email?.toLowerCase().includes(search)
+        );
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   },
