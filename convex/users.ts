@@ -12,22 +12,23 @@ export const upsertCurrentUser = mutation({
       throw new Error("Unauthorized");
     }
 
-    const fullName = [identity.givenName, identity.familyName]
-      .filter((part): part is string => !!part && part.trim().length > 0)
-      .join(" ");
-
-    const name =
-      identity.name ??
-      (fullName.length > 0 ? fullName : undefined) ??
-      identity.givenName ??
-      identity.nickname ??
-      identity.email?.split("@")[0] ??
-      "Anonymous";
-
     const existing = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
       .unique();
+
+    const fullName = [identity.givenName, identity.familyName]
+      .filter((part): part is string => !!part && part.trim().length > 0)
+      .join(" ");
+
+    const derivedName =
+      identity.name ??
+      (fullName.length > 0 ? fullName : undefined) ??
+      identity.givenName ??
+      identity.nickname ??
+      identity.email?.split("@")[0];
+
+    const name = derivedName?.trim() || existing?.name?.trim() || "User";
 
     if (existing) {
       await ctx.db.patch(existing._id, {

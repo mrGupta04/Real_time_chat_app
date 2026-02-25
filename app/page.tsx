@@ -339,6 +339,11 @@ function ChatApp() {
   const recordingAudioContextRef = useRef<AudioContext | null>(null);
   const recordingAnalyserRef = useRef<AnalyserNode | null>(null);
   const waveformAnimationRef = useRef<number | null>(null);
+  const headerMenuRef = useRef<HTMLDivElement | null>(null);
+  const blockedUsersSectionRef = useRef<HTMLDivElement | null>(null);
+  const globalSearchSectionRef = useRef<HTMLDivElement | null>(null);
+  const privacySectionRef = useRef<HTMLDivElement | null>(null);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
 
   const users = useQuery(
     api.users.listUsers,
@@ -669,6 +674,24 @@ function ChatApp() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [historyMessageId, selectedConversationId]);
+
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) {
+        return;
+      }
+
+      if (headerMenuRef.current?.contains(target)) {
+        return;
+      }
+
+      setShowHeaderMenu(false);
+    };
+
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, []);
 
   useEffect(() => {
     if (isUploadingMedia || uploadQueue.length === 0 || !selectedConversationId) {
@@ -1068,8 +1091,40 @@ function ChatApp() {
       return;
     }
 
-    await deleteConversationForMe({ conversationId: selectedConversationId });
-    selectConversation(null);
+    try {
+      await deleteConversationForMe({ conversationId: selectedConversationId });
+      selectConversation(null);
+    } catch {
+      setSendError("Could not delete chat. Please try again.");
+    }
+  };
+
+  const openSidebarSection = (
+    section: "blockedUsers" | "globalSearch" | "privacySecurity",
+  ) => {
+    setShowHeaderMenu(false);
+
+    if (selectedConversationId) {
+      selectConversation(null);
+    }
+
+    const run = () => {
+      if (section === "blockedUsers") {
+        blockedUsersSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+
+      if (section === "globalSearch") {
+        globalSearchSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+
+      privacySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(run);
+    });
   };
 
   const handleToggleBlock = async (targetUserId: Id<"users">) => {
@@ -1265,6 +1320,42 @@ function ChatApp() {
             )}
           </div>
           <div className="flex items-center gap-3">
+            <div ref={headerMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setShowHeaderMenu((prev) => !prev)}
+                className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100"
+                aria-label="Open menu"
+                title="More options"
+              >
+                ⋮
+              </button>
+              {showHeaderMenu && (
+                <div className="absolute right-0 z-20 mt-1 w-56 rounded-md border border-zinc-200 bg-white p-1 shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => openSidebarSection("blockedUsers")}
+                    className="w-full rounded px-2 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100"
+                  >
+                    Blocked users
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openSidebarSection("globalSearch")}
+                    className="w-full rounded px-2 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100"
+                  >
+                    All media / All sender
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openSidebarSection("privacySecurity")}
+                    className="w-full rounded px-2 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100"
+                  >
+                    Privacy & security
+                  </button>
+                </div>
+              )}
+            </div>
             <UserButton />
             <SignOutButton>
               <button className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100">
@@ -1274,11 +1365,11 @@ function ChatApp() {
           </div>
         </header>
 
-        <main className="flex h-[calc(100vh-3.5rem)]">
+        <main className="flex h-[calc(100dvh-3.5rem)] overflow-hidden">
           <aside
             className={`${
               selectedConversationId ? "hidden md:flex" : "flex"
-            } w-full shrink-0 flex-col border-r border-zinc-200 bg-white md:w-96`}
+            } w-full shrink-0 flex-col border-r border-zinc-200 bg-white md:w-80 lg:w-96`}
           >
             <div className="border-b border-zinc-200 p-4">
               <div className="flex items-center justify-between gap-2">
@@ -1384,7 +1475,7 @@ function ChatApp() {
                 )}
               </div>
 
-              <div className="mt-3 border-t border-zinc-200 pt-3">
+              <div ref={blockedUsersSectionRef} className="mt-3 border-t border-zinc-200 pt-3">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                   Blocked users
                 </h3>
@@ -1420,7 +1511,7 @@ function ChatApp() {
                 )}
               </div>
 
-              <div className="mt-3 border-t border-zinc-200 pt-3">
+              <div ref={globalSearchSectionRef} className="mt-3 border-t border-zinc-200 pt-3">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                   Global search
                 </h3>
@@ -1511,7 +1602,7 @@ function ChatApp() {
                   )}
               </div>
 
-              <div className="mt-3 border-t border-zinc-200 pt-3">
+              <div ref={privacySectionRef} className="mt-3 border-t border-zinc-200 pt-3">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                   Privacy & security
                 </h3>
@@ -1621,7 +1712,7 @@ function ChatApp() {
                             </span>
                           )}
                           {conversation.lastMessageAt && (
-                            <p className="shrink-0 text-xs text-zinc-500">
+                            <p className="hidden shrink-0 text-xs text-zinc-500 sm:block">
                               {formatTimestamp(conversation.lastMessageAt)}
                             </p>
                           )}
@@ -1640,7 +1731,7 @@ function ChatApp() {
           <section
             className={`${
               selectedConversationId ? "flex" : "hidden md:flex"
-            } flex-1 flex-col`}
+            } min-w-0 flex-1 flex-col`}
           >
             {!selectedConversationId ? (
               <div className="flex h-full items-center justify-center p-6 text-center text-zinc-500">
@@ -1648,14 +1739,14 @@ function ChatApp() {
               </div>
             ) : (
               <>
-                <div className="flex h-14 items-center gap-3 border-b border-zinc-200 bg-white px-4">
+                <div className="flex min-h-14 flex-wrap items-center gap-2 border-b border-zinc-200 bg-white px-3 py-2 sm:px-4">
                   <button
                     onClick={() => selectConversation(null)}
                     className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100 md:hidden"
                   >
                     Back
                   </button>
-                  <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2">
                       {selectedConversation && (
                         <Avatar
@@ -1675,14 +1766,24 @@ function ChatApp() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                       {selectedConversation?.isGroup && (
                         <button
                           type="button"
                           onClick={() => setShowGroupPanel((prev) => !prev)}
-                          className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-100"
+                          className="whitespace-nowrap rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-100"
                         >
-                          {showGroupPanel ? "Close group" : "Manage group"}
+                          {showGroupPanel ? (
+                            <>
+                              <span className="sm:hidden">Group</span>
+                              <span className="hidden sm:inline">Close group</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="sm:hidden">Group</span>
+                              <span className="hidden sm:inline">Manage group</span>
+                            </>
+                          )}
                         </button>
                       )}
                       {!selectedConversation?.isGroup && selectedConversation?.otherUserId && (
@@ -1694,7 +1795,7 @@ function ChatApp() {
                             }
                             void handleToggleBlock(selectedConversation.otherUserId);
                           }}
-                          className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-100"
+                          className="whitespace-nowrap rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-100"
                         >
                           Block
                         </button>
@@ -1702,9 +1803,10 @@ function ChatApp() {
                       <button
                         type="button"
                         onClick={() => void handleDeleteConversation()}
-                        className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-100"
+                        className="whitespace-nowrap rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-100"
                       >
-                        Delete chat
+                        <span className="sm:hidden">Delete</span>
+                        <span className="hidden sm:inline">Delete chat</span>
                       </button>
                     </div>
                   </div>
@@ -2240,7 +2342,7 @@ function ChatApp() {
                       </button>
                     </div>
                   )}
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -2254,37 +2356,47 @@ function ChatApp() {
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={!selectedConversationId}
-                      className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-md border border-zinc-300 px-2.5 py-2 text-sm text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Media
                     </button>
                     <button
                       type="button"
-                      onPointerDown={() => void handleToggleRecording()}
-                      onPointerUp={() => void handleToggleRecording()}
-                      onPointerCancel={() => {
-                        if (isRecordingAudio) {
-                          void handleToggleRecording();
-                        }
-                      }}
-                      className={`rounded-md border px-3 py-2 text-sm ${
+                      onClick={() => void handleToggleRecording()}
+                      title={isRecordingAudio ? "Stop recording" : "Start recording"}
+                      aria-label={isRecordingAudio ? "Stop recording" : "Start recording"}
+                      className={`rounded-md border p-2 ${
                         isRecordingAudio
                           ? "border-red-400 text-red-600"
                           : "border-zinc-300 text-zinc-700 hover:bg-zinc-100"
                       }`}
                     >
-                      {isRecordingAudio ? "Recording… release" : "Hold to talk"}
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className={`h-5 w-5 ${isRecordingAudio ? "animate-pulse" : ""}`}
+                      >
+                        <rect x="9" y="2" width="6" height="12" rx="3" ry="3" />
+                        <path d="M5 10a7 7 0 0 0 14 0" />
+                        <line x1="12" y1="17" x2="12" y2="22" />
+                        <line x1="8" y1="22" x2="16" y2="22" />
+                      </svg>
                     </button>
                     <input
                       value={draftMessage}
                       onChange={(event) => setDraftMessage(event.target.value)}
                       placeholder="Type a message or send media"
-                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none ring-zinc-300 focus:ring"
+                      className="order-3 basis-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none ring-zinc-300 focus:ring sm:order-none sm:basis-auto sm:flex-1"
                     />
                     <button
                       type="submit"
                       disabled={isUploadingMedia}
-                      className="rounded-md bg-zinc-900 px-4 py-2 text-sm text-white hover:bg-zinc-800"
+                      className="rounded-md bg-zinc-900 px-3 py-2 text-sm text-white hover:bg-zinc-800"
                     >
                       Send
                     </button>

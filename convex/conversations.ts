@@ -271,19 +271,23 @@ export const deleteConversationForMe = mutation({
       throw new Error("Not found");
     }
 
+    if (membership.isDeleted) {
+      return { deleted: true };
+    }
+
     await ctx.db.patch(membership._id, {
       isDeleted: true,
       lastReadAt: Date.now(),
     });
 
-    const typing = await ctx.db
+    const typingRows = await ctx.db
       .query("typingStatus")
       .withIndex("by_conversationId_userId", (q) =>
         q.eq("conversationId", args.conversationId).eq("userId", me._id),
       )
-      .unique();
+      .collect();
 
-    if (typing) {
+    for (const typing of typingRows) {
       await ctx.db.delete(typing._id);
     }
 
