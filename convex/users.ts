@@ -132,49 +132,67 @@ export const listUsers = query({
 export const listBlockedUsers = query({
   args: {},
   handler: async (ctx) => {
-    const me = await getCurrentUser(ctx);
-    if (!me) {
-      return [];
-    }
-
-    let blockedRows: Array<{ blockedId: typeof me._id }> = [];
     try {
-      blockedRows = await ctx.db
-        .query("blocks")
-        .withIndex("by_blockerId", (q) => q.eq("blockerId", me._id))
-        .collect();
-    } catch {
-      try {
-        const allBlocks = await ctx.db.query("blocks").collect();
-        blockedRows = allBlocks.filter((row) => row.blockerId === me._id);
-      } catch {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
         return [];
       }
-    }
 
-    const users = await Promise.all(
-      blockedRows.map(async (row) => {
-        const user = await ctx.db.get(row.blockedId);
-        if (!user) {
-          return null;
+      let me = await ctx.db
+        .query("users")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+        .unique();
+
+      if (!me) {
+        const users = await ctx.db.query("users").collect();
+        me = users.find((user) => user.clerkId === identity.subject) ?? null;
+      }
+
+      if (!me) {
+        return [];
+      }
+
+      let blockedRows: Array<{ blockedId: typeof me._id }> = [];
+      try {
+        blockedRows = await ctx.db
+          .query("blocks")
+          .withIndex("by_blockerId", (q) => q.eq("blockerId", me._id))
+          .collect();
+      } catch {
+        try {
+          const allBlocks = await ctx.db.query("blocks").collect();
+          blockedRows = allBlocks.filter((row) => row.blockerId === me._id);
+        } catch {
+          return [];
         }
+      }
 
-        const safeName =
-          typeof user.name === "string" && user.name.trim().length > 0
-            ? user.name
-            : user.email?.trim() || "Unknown user";
+      const users = await Promise.all(
+        blockedRows.map(async (row) => {
+          const user = await ctx.db.get(row.blockedId);
+          if (!user) {
+            return null;
+          }
 
-        return {
-          _id: user._id,
-          name: safeName,
-          imageUrl: user.imageUrl,
-        };
-      }),
-    );
+          const safeName =
+            typeof user.name === "string" && user.name.trim().length > 0
+              ? user.name
+              : user.email?.trim() || "Unknown user";
 
-    return users
-      .filter((user): user is NonNullable<typeof user> => user !== null)
-      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+          return {
+            _id: user._id,
+            name: safeName,
+            imageUrl: user.imageUrl,
+          };
+        }),
+      );
+
+      return users
+        .filter((user): user is NonNullable<typeof user> => user !== null)
+        .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    } catch {
+      return [];
+    }
   },
 });
 
