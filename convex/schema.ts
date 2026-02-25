@@ -29,6 +29,7 @@ export default defineSchema({
     joinedAt: v.number(),
     role: v.optional(v.union(v.literal("owner"), v.literal("admin"), v.literal("member"))),
     lastReadAt: v.optional(v.number()),
+    clearedAt: v.optional(v.number()),
     isDeleted: v.optional(v.boolean()),
   })
     .index("by_userId", ["userId"])

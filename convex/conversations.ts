@@ -168,9 +168,11 @@ export const getOrCreateDirectConversation = mutation({
 
       if (includesOther) {
         if (membership.isDeleted) {
+          const now = Date.now();
           await ctx.db.patch(membership._id, {
             isDeleted: false,
-            lastReadAt: Date.now(),
+            lastReadAt: now,
+            clearedAt: now,
           });
         }
         return membership.conversationId;
@@ -323,6 +325,7 @@ export const deleteConversationForMe = mutation({
         ctx.db.patch(membership._id, {
           isDeleted: true,
           lastReadAt: now,
+          clearedAt: now,
         }),
       ),
     );

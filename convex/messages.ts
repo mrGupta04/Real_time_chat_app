@@ -29,14 +29,20 @@ export const list = query({
   handler: async (ctx, args) => {
     const me = await getCurrentUserOrThrow(ctx);
 
-    const membership = await ctx.db
+    const memberships = await ctx.db
       .query("conversationMembers")
       .withIndex("by_conversationId_userId", (q) =>
         q.eq("conversationId", args.conversationId).eq("userId", me._id),
       )
-      .unique();
+      .collect();
 
-    if (!membership || membership.isDeleted) {
+    const activeMemberships = memberships.filter((membership) => !membership.isDeleted);
+    const clearedAfter = activeMemberships.reduce(
+      (max, membership) => Math.max(max, membership.clearedAt ?? 0),
+      0,
+    );
+
+    if (activeMemberships.length === 0) {
       throw new Error("Not found");
     }
 
@@ -78,7 +84,9 @@ export const list = query({
           .order("desc")
           .take(takeCount);
 
-    const orderedMessages = [...messages].reverse();
+    const orderedMessages = [...messages]
+      .reverse()
+      .filter((message) => message.createdAt > clearedAfter);
 
     const items = await Promise.all(
       orderedMessages.map(async (message) => {
@@ -193,17 +201,16 @@ export const list = query({
     );
 
     const oldestCreatedAt = orderedMessages[0]?.createdAt ?? null;
-    const hasMore =
+    const nextOlder =
       oldestCreatedAt !== null
-        ? (
-            await ctx.db
-              .query("messages")
-              .withIndex("by_conversationId_createdAt", (q) =>
-                q.eq("conversationId", args.conversationId).lt("createdAt", oldestCreatedAt),
-              )
-              .first()
-          ) !== null
-        : false;
+        ? await ctx.db
+            .query("messages")
+            .withIndex("by_conversationId_createdAt", (q) =>
+              q.eq("conversationId", args.conversationId).lt("createdAt", oldestCreatedAt),
+            )
+            .first()
+        : null;
+    const hasMore = !!nextOlder && nextOlder.createdAt > clearedAfter;
 
     return {
       items,
@@ -230,14 +237,17 @@ export const send = mutation({
   handler: async (ctx, args) => {
     const me = await getCurrentUserOrThrow(ctx);
 
-    const membership = await ctx.db
+    const memberships = await ctx.db
       .query("conversationMembers")
       .withIndex("by_conversationId_userId", (q) =>
         q.eq("conversationId", args.conversationId).eq("userId", me._id),
       )
-      .unique();
+      .collect();
 
-    if (!membership || membership.isDeleted) {
+    const activeMemberships = memberships.filter((membership) => !membership.isDeleted);
+    const membership = activeMemberships[0] ?? null;
+
+    if (!membership) {
       throw new Error("Not found");
     }
 
@@ -338,14 +348,17 @@ export const sendMedia = mutation({
   handler: async (ctx, args) => {
     const me = await getCurrentUserOrThrow(ctx);
 
-    const membership = await ctx.db
+    const memberships = await ctx.db
       .query("conversationMembers")
       .withIndex("by_conversationId_userId", (q) =>
         q.eq("conversationId", args.conversationId).eq("userId", me._id),
       )
-      .unique();
+      .collect();
 
-    if (!membership || membership.isDeleted) {
+    const activeMemberships = memberships.filter((membership) => !membership.isDeleted);
+    const membership = activeMemberships[0] ?? null;
+
+    if (!membership) {
       throw new Error("Not found");
     }
 
@@ -654,14 +667,24 @@ export const listStarred = query({
           return null;
         }
 
-        const membership = await ctx.db
+        const memberships = await ctx.db
           .query("conversationMembers")
           .withIndex("by_conversationId_userId", (q) =>
             q.eq("conversationId", message.conversationId).eq("userId", me._id),
           )
-          .unique();
+          .collect();
 
-        if (!membership || membership.isDeleted) {
+        const activeMemberships = memberships.filter((membership) => !membership.isDeleted);
+        const clearedAfter = activeMemberships.reduce(
+          (max, membership) => Math.max(max, membership.clearedAt ?? 0),
+          0,
+        );
+
+        if (activeMemberships.length === 0) {
+          return null;
+        }
+
+        if (message.createdAt <= clearedAfter) {
           return null;
         }
 
@@ -695,14 +718,20 @@ export const searchInConversation = query({
   },
   handler: async (ctx, args) => {
     const me = await getCurrentUserOrThrow(ctx);
-    const membership = await ctx.db
+    const memberships = await ctx.db
       .query("conversationMembers")
       .withIndex("by_conversationId_userId", (q) =>
         q.eq("conversationId", args.conversationId).eq("userId", me._id),
       )
-      .unique();
+      .collect();
 
-    if (!membership || membership.isDeleted) {
+    const activeMemberships = memberships.filter((membership) => !membership.isDeleted);
+    const clearedAfter = activeMemberships.reduce(
+      (max, membership) => Math.max(max, membership.clearedAt ?? 0),
+      0,
+    );
+
+    if (activeMemberships.length === 0) {
       throw new Error("Not found");
     }
 
@@ -714,6 +743,7 @@ export const searchInConversation = query({
 
     return messages
       .filter((message) => !message.deleted)
+      .filter((message) => message.createdAt > clearedAfter)
       .filter((message) => (text ? message.body.toLowerCase().includes(text) : true))
       .filter((message) => (args.mediaType ? message.mediaType === args.mediaType : true))
       .filter((message) => (args.senderId ? message.senderId === args.senderId : true))
@@ -746,13 +776,24 @@ export const searchGlobal = query({
       .withIndex("by_userId", (q) => q.eq("userId", me._id))
       .collect();
 
-    const conversationIds = memberships
-      .filter((membership) => !membership.isDeleted)
-      .map((membership) => membership.conversationId);
+    const cutoffByConversation = new Map<string, number>();
+    for (const membership of memberships) {
+      if (membership.isDeleted) {
+        continue;
+      }
+      const key = String(membership.conversationId);
+      const nextCutoff = Math.max(cutoffByConversation.get(key) ?? 0, membership.clearedAt ?? 0);
+      cutoffByConversation.set(key, nextCutoff);
+    }
+
+    const conversationIds = Array.from(cutoffByConversation.keys()).map(
+      (id) => id as typeof memberships[number]["conversationId"],
+    );
 
     const results = await Promise.all(
       conversationIds.map(async (conversationId) => {
         const conversation = await ctx.db.get(conversationId);
+        const clearedAfter = cutoffByConversation.get(String(conversationId)) ?? 0;
         const rows = await ctx.db
           .query("messages")
           .withIndex("by_conversationId_createdAt", (q) => q.eq("conversationId", conversationId))
@@ -762,6 +803,7 @@ export const searchGlobal = query({
 
         return rows
           .filter((message) => !message.deleted)
+          .filter((message) => message.createdAt > clearedAfter)
           .filter((message) => (text ? message.body.toLowerCase().includes(text) : true))
           .filter((message) => (args.mediaType ? message.mediaType === args.mediaType : true))
           .filter((message) => (args.senderId ? message.senderId === args.senderId : true))
