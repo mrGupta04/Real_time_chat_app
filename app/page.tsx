@@ -331,7 +331,6 @@ function ChatApp() {
   const lastMessageIdRef = useRef<Id<"messages"> | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const globalSearchInputRef = useRef<HTMLInputElement | null>(null);
-  const conversationSearchInputRef = useRef<HTMLInputElement | null>(null);
   const messageNodeRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaChunksRef = useRef<Blob[]>([]);
@@ -467,31 +466,6 @@ function ChatApp() {
     }
     return rows;
   }, [me?._id, me?.name, users]);
-
-  const conversationSenderOptions = useMemo(() => {
-    if (!selectedConversation) {
-      return [] as Array<{ userId: Id<"users">; name: string }>;
-    }
-
-    if (selectedConversation.isGroup) {
-      return (groupMembers ?? []).map((member) => ({
-        userId: member.userId,
-        name: member.userId === me?._id ? `${member.name} (You)` : member.name,
-      }));
-    }
-
-    const rows: Array<{ userId: Id<"users">; name: string }> = [];
-    if (me?._id) {
-      rows.push({ userId: me._id, name: `${me.name} (You)` });
-    }
-    if (selectedConversation.otherUserId) {
-      rows.push({
-        userId: selectedConversation.otherUserId,
-        name: selectedConversation.title,
-      });
-    }
-    return rows;
-  }, [groupMembers, me?._id, me?.name, selectedConversation]);
 
   useEffect(() => {
     if (!isSignedIn) {
@@ -643,26 +617,12 @@ function ChatApp() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      const tag = target?.tagName?.toLowerCase();
-      const isEditingField =
-        tag === "input" ||
-        tag === "textarea" ||
-        tag === "select" ||
-        target?.isContentEditable;
-
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setShowHeaderMenu(true);
         window.requestAnimationFrame(() => {
           globalSearchInputRef.current?.focus();
         });
-        return;
-      }
-
-      if (event.key === "/" && selectedConversationId && !isEditingField) {
-        event.preventDefault();
-        conversationSearchInputRef.current?.focus();
         return;
       }
 
@@ -1291,8 +1251,8 @@ function ChatApp() {
               </div>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            <div ref={headerMenuRef} className="relative">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div ref={headerMenuRef} className="relative order-3 sm:order-1">
               <button
                 type="button"
                 onClick={() => setShowHeaderMenu((prev) => !prev)}
@@ -1312,15 +1272,15 @@ function ChatApp() {
                 </svg>
               </button>
               {showHeaderMenu && (
-                <div className="absolute right-0 z-20 mt-1 w-[min(22rem,calc(100vw-2rem))] max-h-[70vh] overflow-y-auto rounded-md border border-zinc-200 bg-white p-2 shadow-sm">
+                <div className="absolute right-0 z-20 mt-1 w-[min(22rem,calc(100vw-2rem))] max-h-[70vh] overflow-y-auto rounded-md border border-zinc-200 bg-white p-2 text-zinc-900 shadow-sm">
                   <div className="border-b border-zinc-200 pb-3">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-900">
                       🚫 Blocked users
                     </h3>
                     {blockedUsers === undefined ? (
                       <div className="mt-2 h-8 animate-pulse rounded-md bg-zinc-100" />
                     ) : blockedUsers.length === 0 ? (
-                      <p className="mt-2 text-xs text-zinc-500">No blocked users.</p>
+                      <p className="mt-2 text-xs text-zinc-900">No blocked users.</p>
                     ) : (
                       <div className="mt-2 space-y-1">
                         {blockedUsers.map((blockedUser) => (
@@ -1339,7 +1299,7 @@ function ChatApp() {
                             <button
                               type="button"
                               onClick={() => void handleToggleBlock(blockedUser._id)}
-                              className="rounded border border-zinc-300 px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-100"
+                              className="rounded border border-zinc-300 px-2 py-0.5 text-[10px] text-zinc-900 hover:bg-zinc-100"
                             >
                               Unblock
                             </button>
@@ -1350,7 +1310,7 @@ function ChatApp() {
                   </div>
 
                   <div className="mt-3 border-b border-zinc-200 pb-3">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-900">
                       🔎 Global search
                     </h3>
                     <input
@@ -1358,9 +1318,9 @@ function ChatApp() {
                       value={globalSearch}
                       onChange={(event) => setGlobalSearch(event.target.value)}
                       placeholder="Search all chats"
-                      className="mt-2 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-xs outline-none ring-zinc-300 focus:ring"
+                      className="mt-2 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-xs text-zinc-900 outline-none ring-zinc-300 focus:ring"
                     />
-                    <p className="mt-1 text-[10px] text-zinc-500">Shortcut: Ctrl/Cmd + K</p>
+                    <p className="mt-1 text-[10px] text-zinc-900">Shortcut: Ctrl/Cmd + K</p>
                     <select
                       value={searchMediaType}
                       onChange={(event) =>
@@ -1368,7 +1328,7 @@ function ChatApp() {
                           event.target.value as "all" | "image" | "video" | "audio",
                         )
                       }
-                      className="mt-2 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-xs"
+                      className="mt-2 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-xs text-zinc-900"
                     >
                       <option value="all">All media</option>
                       <option value="image">Images only</option>
@@ -1384,7 +1344,7 @@ function ChatApp() {
                             : (event.target.value as Id<"users">),
                         )
                       }
-                      className="mt-2 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-xs"
+                      className="mt-2 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-xs text-zinc-900"
                     >
                       <option value="all">All senders</option>
                       {globalSenderOptions.map((row) => (
@@ -1398,13 +1358,13 @@ function ChatApp() {
                         type="date"
                         value={globalFromDate}
                         onChange={(event) => setGlobalFromDate(event.target.value)}
-                        className="rounded-md border border-zinc-300 px-2 py-1.5 text-xs"
+                        className="rounded-md border border-zinc-300 px-2 py-1.5 text-xs text-zinc-900"
                       />
                       <input
                         type="date"
                         value={globalToDate}
                         onChange={(event) => setGlobalToDate(event.target.value)}
-                        className="rounded-md border border-zinc-300 px-2 py-1.5 text-xs"
+                        className="rounded-md border border-zinc-300 px-2 py-1.5 text-xs text-zinc-900"
                       />
                     </div>
                     {globalSearchResults && globalSearchResults.length > 0 && (
@@ -1420,7 +1380,7 @@ function ChatApp() {
                             className="w-full rounded-md border border-zinc-200 px-2 py-1 text-left text-[11px] hover:bg-zinc-50"
                           >
                             <p className="truncate font-medium">{row.conversationTitle}</p>
-                            <p className="truncate text-zinc-600">
+                            <p className="truncate text-zinc-900">
                               {row.body ||
                                 (row.mediaType === "image"
                                   ? "📷 Photo"
@@ -1437,40 +1397,40 @@ function ChatApp() {
                     {globalSearch.trim().length > 0 &&
                       globalSearchResults !== undefined &&
                       globalSearchResults.length === 0 && (
-                        <p className="mt-2 text-xs text-zinc-500">
+                        <p className="mt-2 text-xs text-zinc-900">
                           No global results for current filters.
                         </p>
                       )}
                   </div>
 
                   <div className="mt-3">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-900">
                       🔐 Privacy & security
                     </h3>
                     <div className="mt-2 space-y-1 text-xs">
                       <button
                         type="button"
                         onClick={() => void handleToggleReadReceipts()}
-                        className="w-full rounded-md border border-zinc-300 px-2 py-1 text-left hover:bg-zinc-100"
+                        className="w-full rounded-md border border-zinc-300 px-2 py-1 text-left text-zinc-900 hover:bg-zinc-100"
                       >
                         Read receipts: {myPrivacy?.readReceiptsEnabled ? "On" : "Off"}
                       </button>
                       <button
                         type="button"
                         onClick={() => void handleToggleLoginAlerts()}
-                        className="w-full rounded-md border border-zinc-300 px-2 py-1 text-left hover:bg-zinc-100"
+                        className="w-full rounded-md border border-zinc-300 px-2 py-1 text-left text-zinc-900 hover:bg-zinc-100"
                       >
                         Suspicious login alerts: {mySecurity?.suspiciousLoginAlerts ? "On" : "Off"}
                       </button>
                       <button
                         type="button"
                         onClick={() => void handleToggleE2EE()}
-                        className="w-full rounded-md border border-zinc-300 px-2 py-1 text-left hover:bg-zinc-100"
+                        className="w-full rounded-md border border-zinc-300 px-2 py-1 text-left text-zinc-900 hover:bg-zinc-100"
                       >
                         E2EE mode (scaffold): {mySecurity?.e2eeEnabled ? "On" : "Off"}
                       </button>
                       <label className="block rounded-md border border-zinc-300 px-2 py-1">
-                        <span className="text-zinc-600">Last seen visibility</span>
+                        <span className="text-zinc-900">Last seen visibility</span>
                         <select
                           value={myPrivacy?.lastSeenVisibility ?? "everyone"}
                           onChange={(event) =>
@@ -1478,14 +1438,14 @@ function ChatApp() {
                               event.target.value as "everyone" | "nobody",
                             )
                           }
-                          className="mt-1 w-full rounded border border-zinc-300 px-2 py-1"
+                          className="mt-1 w-full rounded border border-zinc-300 px-2 py-1 text-zinc-900"
                         >
                           <option value="everyone">Everyone</option>
                           <option value="nobody">Nobody</option>
                         </select>
                       </label>
                       <label className="block rounded-md border border-zinc-300 px-2 py-1">
-                        <span className="text-zinc-600">Who can message me</span>
+                        <span className="text-zinc-900">Who can message me</span>
                         <select
                           value={myPrivacy?.whoCanMessage ?? "everyone"}
                           onChange={(event) =>
@@ -1493,7 +1453,7 @@ function ChatApp() {
                               event.target.value as "everyone" | "nobody",
                             )
                           }
-                          className="mt-1 w-full rounded border border-zinc-300 px-2 py-1"
+                          className="mt-1 w-full rounded border border-zinc-300 px-2 py-1 text-zinc-900"
                         >
                           <option value="everyone">Everyone</option>
                           <option value="nobody">Nobody</option>
@@ -1504,12 +1464,16 @@ function ChatApp() {
                 </div>
               )}
             </div>
-            <UserButton />
-            <SignOutButton>
-              <button className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100">
-                Log out
-              </button>
-            </SignOutButton>
+            <div className="order-1 sm:order-2">
+              <UserButton />
+            </div>
+            <div className="order-2 sm:order-3">
+              <SignOutButton>
+                <button className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100">
+                  Log out
+                </button>
+              </SignOutButton>
+            </div>
           </div>
         </header>
 
@@ -1777,48 +1741,6 @@ function ChatApp() {
 
                 <div className="relative flex-1 overflow-hidden">
                   <div className="border-b border-zinc-200 bg-white px-4 py-2">
-                    <div className="flex items-center gap-2">
-                      <input
-                        ref={conversationSearchInputRef}
-                        value={conversationSearch}
-                        onChange={(event) => setConversationSearch(event.target.value)}
-                        placeholder="Search in this chat"
-                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-xs outline-none ring-zinc-300 focus:ring"
-                      />
-                    </div>
-                    <p className="mt-1 text-[10px] text-zinc-500">Shortcut: /</p>
-                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                      <select
-                        value={conversationSenderId}
-                        onChange={(event) =>
-                          setConversationSenderId(
-                            event.target.value === "all"
-                              ? "all"
-                              : (event.target.value as Id<"users">),
-                          )
-                        }
-                        className="rounded-md border border-zinc-300 px-2 py-1.5 text-xs"
-                      >
-                        <option value="all">All senders</option>
-                        {conversationSenderOptions.map((row) => (
-                          <option key={`conv-sender-${row.userId}`} value={row.userId}>
-                            {row.name}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="date"
-                        value={conversationFromDate}
-                        onChange={(event) => setConversationFromDate(event.target.value)}
-                        className="rounded-md border border-zinc-300 px-2 py-1.5 text-xs"
-                      />
-                      <input
-                        type="date"
-                        value={conversationToDate}
-                        onChange={(event) => setConversationToDate(event.target.value)}
-                        className="rounded-md border border-zinc-300 px-2 py-1.5 text-xs"
-                      />
-                    </div>
                     {historyMessageId && (
                       <div className="mt-2 rounded-md border border-zinc-200 bg-zinc-50 p-2 text-xs">
                         <div className="mb-2 flex items-center justify-between">
