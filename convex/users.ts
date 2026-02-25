@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUserOrThrow } from "./lib/auth";
+import { resolveUserDisplayName } from "./lib/displayName";
 import { getOrCreatePrivacySettings } from "./lib/privacy";
 
 export const upsertCurrentUser = mutation({
@@ -28,7 +29,10 @@ export const upsertCurrentUser = mutation({
       identity.nickname ??
       identity.email?.split("@")[0];
 
-    const name = derivedName?.trim() || existing?.name?.trim() || "User";
+    const name = resolveUserDisplayName({
+      name: derivedName ?? existing?.name,
+      email: identity.email ?? existing?.email,
+    });
 
     if (existing) {
       await ctx.db.patch(existing._id, {
@@ -56,10 +60,19 @@ export const me = query({
       return null;
     }
 
-    return await ctx.db
+    const me = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
       .unique();
+
+    if (!me) {
+      return null;
+    }
+
+    return {
+      ...me,
+      name: resolveUserDisplayName(me),
+    };
   },
 });
 
@@ -102,6 +115,7 @@ export const listUsers = query({
 
         return {
           ...user,
+          name: resolveUserDisplayName(user),
           isOnline:
             privacy.lastSeenVisibility === "everyone" &&
             !!presence &&
@@ -175,10 +189,7 @@ export const listBlockedUsers = query({
             return null;
           }
 
-          const safeName =
-            typeof user.name === "string" && user.name.trim().length > 0
-              ? user.name
-              : user.email?.trim() || "Unknown user";
+          const safeName = resolveUserDisplayName(user);
 
           return {
             _id: user._id,

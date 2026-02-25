@@ -11,6 +11,7 @@
 import type * as conversations from "../conversations.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_blocks from "../lib/blocks.js";
+import type * as lib_displayName from "../lib/displayName.js";
 import type * as lib_privacy from "../lib/privacy.js";
 import type * as messages from "../messages.js";
 import type * as presence from "../presence.js";
@@ -27,6 +28,7 @@ declare const fullApi: ApiFromModules<{
   conversations: typeof conversations;
   "lib/auth": typeof lib_auth;
   "lib/blocks": typeof lib_blocks;
+  "lib/displayName": typeof lib_displayName;
   "lib/privacy": typeof lib_privacy;
   messages: typeof messages;
   presence: typeof presence;

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUserOrThrow } from "./lib/auth";
 import { isBlockedBetween } from "./lib/blocks";
+import { resolveUserDisplayName } from "./lib/displayName";
 import { canMessageUser, getOrCreatePrivacySettings } from "./lib/privacy";
 
 const ALLOWED_REACTIONS = [
@@ -130,7 +131,7 @@ export const list = query({
               const user = await ctx.db.get(member.userId);
               return {
                 userId: member.userId,
-                name: user?.name ?? "Unknown",
+                name: resolveUserDisplayName(user),
               };
             }),
         );
@@ -170,7 +171,7 @@ export const list = query({
             ? replyToMessage
               ? {
                   messageId: replyToMessage._id,
-                  senderName: replyToSender?.name ?? "Unknown",
+                  senderName: resolveUserDisplayName(replyToSender),
                   body: replyToMessage.deleted
                     ? "This message was deleted"
                     : replyToMessage.body,
@@ -178,12 +179,12 @@ export const list = query({
                 }
               : {
                   messageId: message.replyToMessageId,
-                  senderName: "Unknown",
+                  senderName: "User",
                   body: "Original message unavailable",
                   mediaType: undefined,
                 }
             : null,
-          senderName: sender?.name ?? "Unknown",
+          senderName: resolveUserDisplayName(sender),
           senderImageUrl: sender?.imageUrl,
           isOwn,
           reactionCounts,

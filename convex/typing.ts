@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUserOrThrow } from "./lib/auth";
+import { resolveUserDisplayName } from "./lib/displayName";
 
 export const updateTyping = mutation({
   args: {
@@ -82,7 +83,7 @@ export const listTypingUsers = query({
         const user = await ctx.db.get(status.userId);
         return {
           userId: status.userId,
-          name: user?.name ?? "Someone",
+          name: resolveUserDisplayName(user),
         };
       }),
     );

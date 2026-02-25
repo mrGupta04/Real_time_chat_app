@@ -2,7 +2,26 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUserOrThrow } from "./lib/auth";
 import { isBlockedBetween } from "./lib/blocks";
+import { resolveUserDisplayName } from "./lib/displayName";
 import { canMessageUser } from "./lib/privacy";
+
+const pickPreferredMembership = <T extends { isDeleted?: boolean; _creationTime: number }>(
+  current: T | undefined,
+  candidate: T,
+) => {
+  if (!current) {
+    return candidate;
+  }
+
+  const currentDeleted = !!current.isDeleted;
+  const candidateDeleted = !!candidate.isDeleted;
+
+  if (currentDeleted !== candidateDeleted) {
+    return currentDeleted ? candidate : current;
+  }
+
+  return candidate._creationTime > current._creationTime ? candidate : current;
+};
 
 export const listForCurrentUser = query({
   args: {},
@@ -26,8 +45,17 @@ export const listForCurrentUser = query({
       .withIndex("by_userId", (q) => q.eq("userId", me._id))
       .collect();
 
+    const membershipsByConversation = new Map<string, (typeof memberships)[number]>();
+    for (const membership of memberships) {
+      const key = String(membership.conversationId);
+      membershipsByConversation.set(
+        key,
+        pickPreferredMembership(membershipsByConversation.get(key), membership),
+      );
+    }
+
     const rows = await Promise.all(
-      memberships.map(async (membership) => {
+      Array.from(membershipsByConversation.values()).map(async (membership) => {
         if (membership.isDeleted) {
           return null;
         }
@@ -78,7 +106,7 @@ export const listForCurrentUser = query({
           title:
             conversation.isGroup && conversation.name
               ? conversation.name
-              : otherUser?.name ?? "Unknown user",
+              : resolveUserDisplayName(otherUser),
           imageUrl: otherUser?.imageUrl,
           lastMessageText: conversation.lastMessageText,
           lastMessageAt: conversation.lastMessageAt,
@@ -182,12 +210,17 @@ export const getConversation = query({
   handler: async (ctx, args) => {
     const me = await getCurrentUserOrThrow(ctx);
 
-    const membership = await ctx.db
+    const memberships = await ctx.db
       .query("conversationMembers")
       .withIndex("by_conversationId_userId", (q) =>
         q.eq("conversationId", args.conversationId).eq("userId", me._id),
       )
-      .unique();
+      .collect();
+
+    const membership = memberships.reduce<null | (typeof memberships)[number]>(
+      (current, candidate) => pickPreferredMembership(current ?? undefined, candidate),
+      null,
+    );
 
     if (!membership || membership.isDeleted) {
       throw new Error("Not found");
@@ -222,7 +255,7 @@ export const getConversation = query({
       title:
         conversation.isGroup && conversation.name
           ? conversation.name
-          : otherUser?.name ?? "Unknown user",
+          : resolveUserDisplayName(otherUser),
       imageUrl: otherUser?.imageUrl,
       otherUserId: otherUser?._id,
     };
@@ -236,20 +269,27 @@ export const markAsRead = mutation({
   handler: async (ctx, args) => {
     const me = await getCurrentUserOrThrow(ctx);
 
-    const membership = await ctx.db
+    const memberships = await ctx.db
       .query("conversationMembers")
       .withIndex("by_conversationId_userId", (q) =>
         q.eq("conversationId", args.conversationId).eq("userId", me._id),
       )
-      .unique();
+      .collect();
 
-    if (!membership || membership.isDeleted) {
+    const activeMemberships = memberships.filter((membership) => !membership.isDeleted);
+
+    if (activeMemberships.length === 0) {
       throw new Error("Not found");
     }
 
-    await ctx.db.patch(membership._id, {
-      lastReadAt: Date.now(),
-    });
+    const now = Date.now();
+    await Promise.all(
+      activeMemberships.map((membership) =>
+        ctx.db.patch(membership._id, {
+          lastReadAt: now,
+        }),
+      ),
+    );
   },
 });
 
@@ -260,25 +300,32 @@ export const deleteConversationForMe = mutation({
   handler: async (ctx, args) => {
     const me = await getCurrentUserOrThrow(ctx);
 
-    const membership = await ctx.db
+    const memberships = await ctx.db
       .query("conversationMembers")
       .withIndex("by_conversationId_userId", (q) =>
         q.eq("conversationId", args.conversationId).eq("userId", me._id),
       )
-      .unique();
+      .collect();
 
-    if (!membership) {
+    if (memberships.length === 0) {
       throw new Error("Not found");
     }
 
-    if (membership.isDeleted) {
+    const activeMemberships = memberships.filter((membership) => !membership.isDeleted);
+
+    if (activeMemberships.length === 0) {
       return { deleted: true };
     }
 
-    await ctx.db.patch(membership._id, {
-      isDeleted: true,
-      lastReadAt: Date.now(),
-    });
+    const now = Date.now();
+    await Promise.all(
+      activeMemberships.map((membership) =>
+        ctx.db.patch(membership._id, {
+          isDeleted: true,
+          lastReadAt: now,
+        }),
+      ),
+    );
 
     const typingRows = await ctx.db
       .query("typingStatus")
@@ -377,7 +424,7 @@ export const listGroupMembers = query({
           return {
             membershipId: member._id,
             userId: member.userId,
-            name: user?.name ?? "Unknown",
+            name: resolveUserDisplayName(user),
             imageUrl: user?.imageUrl,
             role: member.role ?? "member",
           };
