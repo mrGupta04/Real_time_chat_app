@@ -148,9 +148,15 @@ export const listBlockedUsers = query({
         if (!user) {
           return null;
         }
+
+        const safeName =
+          typeof user.name === "string" && user.name.trim().length > 0
+            ? user.name
+            : user.email?.trim() || "Unknown user";
+
         return {
           _id: user._id,
-          name: user.name,
+          name: safeName,
           imageUrl: user.imageUrl,
         };
       }),
@@ -158,7 +164,7 @@ export const listBlockedUsers = query({
 
     return users
       .filter((user): user is NonNullable<typeof user> => user !== null)
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
   },
 });
 
