@@ -137,10 +137,20 @@ export const listBlockedUsers = query({
       return [];
     }
 
-    const blockedRows = await ctx.db
-      .query("blocks")
-      .withIndex("by_blockerId", (q) => q.eq("blockerId", me._id))
-      .collect();
+    let blockedRows: Array<{ blockedId: typeof me._id }> = [];
+    try {
+      blockedRows = await ctx.db
+        .query("blocks")
+        .withIndex("by_blockerId", (q) => q.eq("blockerId", me._id))
+        .collect();
+    } catch {
+      try {
+        const allBlocks = await ctx.db.query("blocks").collect();
+        blockedRows = allBlocks.filter((row) => row.blockerId === me._id);
+      } catch {
+        return [];
+      }
+    }
 
     const users = await Promise.all(
       blockedRows.map(async (row) => {
