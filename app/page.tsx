@@ -340,9 +340,6 @@ function ChatApp() {
   const recordingAnalyserRef = useRef<AnalyserNode | null>(null);
   const waveformAnimationRef = useRef<number | null>(null);
   const headerMenuRef = useRef<HTMLDivElement | null>(null);
-  const blockedUsersSectionRef = useRef<HTMLDivElement | null>(null);
-  const globalSearchSectionRef = useRef<HTMLDivElement | null>(null);
-  const privacySectionRef = useRef<HTMLDivElement | null>(null);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
 
   const users = useQuery(
@@ -656,7 +653,10 @@ function ChatApp() {
 
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        globalSearchInputRef.current?.focus();
+        setShowHeaderMenu(true);
+        window.requestAnimationFrame(() => {
+          globalSearchInputRef.current?.focus();
+        });
         return;
       }
 
@@ -1099,34 +1099,6 @@ function ChatApp() {
     }
   };
 
-  const openSidebarSection = (
-    section: "blockedUsers" | "globalSearch" | "privacySecurity",
-  ) => {
-    setShowHeaderMenu(false);
-
-    if (selectedConversationId) {
-      selectConversation(null);
-    }
-
-    const run = () => {
-      if (section === "blockedUsers") {
-        blockedUsersSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-        return;
-      }
-
-      if (section === "globalSearch") {
-        globalSearchSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-        return;
-      }
-
-      privacySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    };
-
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(run);
-    });
-  };
-
   const handleToggleBlock = async (targetUserId: Id<"users">) => {
     await toggleBlockUser({ targetUserId });
     if (selectedConversation && selectedConversation.otherUserId === targetUserId) {
@@ -1324,35 +1296,211 @@ function ChatApp() {
               <button
                 type="button"
                 onClick={() => setShowHeaderMenu((prev) => !prev)}
-                className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100"
+                className="rounded-md border border-zinc-300 p-2 text-zinc-700 hover:bg-zinc-100"
                 aria-label="Open menu"
                 title="More options"
               >
-                ⋮
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  className="h-5 w-5"
+                >
+                  <circle cx="12" cy="5" r="1.8" />
+                  <circle cx="12" cy="12" r="1.8" />
+                  <circle cx="12" cy="19" r="1.8" />
+                </svg>
               </button>
               {showHeaderMenu && (
-                <div className="absolute right-0 z-20 mt-1 w-56 rounded-md border border-zinc-200 bg-white p-1 shadow-sm">
-                  <button
-                    type="button"
-                    onClick={() => openSidebarSection("blockedUsers")}
-                    className="w-full rounded px-2 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100"
-                  >
-                    Blocked users
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openSidebarSection("globalSearch")}
-                    className="w-full rounded px-2 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100"
-                  >
-                    All media / All sender
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openSidebarSection("privacySecurity")}
-                    className="w-full rounded px-2 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100"
-                  >
-                    Privacy & security
-                  </button>
+                <div className="absolute right-0 z-20 mt-1 w-[min(22rem,calc(100vw-2rem))] max-h-[70vh] overflow-y-auto rounded-md border border-zinc-200 bg-white p-2 shadow-sm">
+                  <div className="border-b border-zinc-200 pb-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                      🚫 Blocked users
+                    </h3>
+                    {blockedUsers === undefined ? (
+                      <div className="mt-2 h-8 animate-pulse rounded-md bg-zinc-100" />
+                    ) : blockedUsers.length === 0 ? (
+                      <p className="mt-2 text-xs text-zinc-500">No blocked users.</p>
+                    ) : (
+                      <div className="mt-2 space-y-1">
+                        {blockedUsers.map((blockedUser) => (
+                          <div
+                            key={`menu-blocked-${blockedUser._id}`}
+                            className="flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-zinc-100"
+                          >
+                            <span className="flex min-w-0 items-center gap-2">
+                              <Avatar
+                                name={blockedUser.name}
+                                imageUrl={blockedUser.imageUrl}
+                                size="sm"
+                              />
+                              <span className="truncate">{blockedUser.name}</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => void handleToggleBlock(blockedUser._id)}
+                              className="rounded border border-zinc-300 px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-100"
+                            >
+                              Unblock
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-3 border-b border-zinc-200 pb-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                      🔎 Global search
+                    </h3>
+                    <input
+                      ref={globalSearchInputRef}
+                      value={globalSearch}
+                      onChange={(event) => setGlobalSearch(event.target.value)}
+                      placeholder="Search all chats"
+                      className="mt-2 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-xs outline-none ring-zinc-300 focus:ring"
+                    />
+                    <p className="mt-1 text-[10px] text-zinc-500">Shortcut: Ctrl/Cmd + K</p>
+                    <select
+                      value={searchMediaType}
+                      onChange={(event) =>
+                        setSearchMediaType(
+                          event.target.value as "all" | "image" | "video" | "audio",
+                        )
+                      }
+                      className="mt-2 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-xs"
+                    >
+                      <option value="all">All media</option>
+                      <option value="image">Images only</option>
+                      <option value="video">Videos only</option>
+                      <option value="audio">Audio only</option>
+                    </select>
+                    <select
+                      value={globalSenderId}
+                      onChange={(event) =>
+                        setGlobalSenderId(
+                          event.target.value === "all"
+                            ? "all"
+                            : (event.target.value as Id<"users">),
+                        )
+                      }
+                      className="mt-2 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-xs"
+                    >
+                      <option value="all">All senders</option>
+                      {globalSenderOptions.map((row) => (
+                        <option key={`menu-global-sender-${row.userId}`} value={row.userId}>
+                          {row.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <input
+                        type="date"
+                        value={globalFromDate}
+                        onChange={(event) => setGlobalFromDate(event.target.value)}
+                        className="rounded-md border border-zinc-300 px-2 py-1.5 text-xs"
+                      />
+                      <input
+                        type="date"
+                        value={globalToDate}
+                        onChange={(event) => setGlobalToDate(event.target.value)}
+                        className="rounded-md border border-zinc-300 px-2 py-1.5 text-xs"
+                      />
+                    </div>
+                    {globalSearchResults && globalSearchResults.length > 0 && (
+                      <div className="mt-2 max-h-28 space-y-1 overflow-y-auto">
+                        {globalSearchResults.slice(0, 8).map((row) => (
+                          <button
+                            key={`menu-global-${row.messageId}`}
+                            type="button"
+                            onClick={() => {
+                              setShowHeaderMenu(false);
+                              selectConversation(row.conversationId);
+                            }}
+                            className="w-full rounded-md border border-zinc-200 px-2 py-1 text-left text-[11px] hover:bg-zinc-50"
+                          >
+                            <p className="truncate font-medium">{row.conversationTitle}</p>
+                            <p className="truncate text-zinc-600">
+                              {row.body ||
+                                (row.mediaType === "image"
+                                  ? "📷 Photo"
+                                  : row.mediaType === "video"
+                                    ? "🎬 Video"
+                                    : row.mediaType === "audio"
+                                      ? "🎤 Voice"
+                                      : "Message")}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {globalSearch.trim().length > 0 &&
+                      globalSearchResults !== undefined &&
+                      globalSearchResults.length === 0 && (
+                        <p className="mt-2 text-xs text-zinc-500">
+                          No global results for current filters.
+                        </p>
+                      )}
+                  </div>
+
+                  <div className="mt-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                      🔐 Privacy & security
+                    </h3>
+                    <div className="mt-2 space-y-1 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => void handleToggleReadReceipts()}
+                        className="w-full rounded-md border border-zinc-300 px-2 py-1 text-left hover:bg-zinc-100"
+                      >
+                        Read receipts: {myPrivacy?.readReceiptsEnabled ? "On" : "Off"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleToggleLoginAlerts()}
+                        className="w-full rounded-md border border-zinc-300 px-2 py-1 text-left hover:bg-zinc-100"
+                      >
+                        Suspicious login alerts: {mySecurity?.suspiciousLoginAlerts ? "On" : "Off"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleToggleE2EE()}
+                        className="w-full rounded-md border border-zinc-300 px-2 py-1 text-left hover:bg-zinc-100"
+                      >
+                        E2EE mode (scaffold): {mySecurity?.e2eeEnabled ? "On" : "Off"}
+                      </button>
+                      <label className="block rounded-md border border-zinc-300 px-2 py-1">
+                        <span className="text-zinc-600">Last seen visibility</span>
+                        <select
+                          value={myPrivacy?.lastSeenVisibility ?? "everyone"}
+                          onChange={(event) =>
+                            void handleUpdateLastSeenVisibility(
+                              event.target.value as "everyone" | "nobody",
+                            )
+                          }
+                          className="mt-1 w-full rounded border border-zinc-300 px-2 py-1"
+                        >
+                          <option value="everyone">Everyone</option>
+                          <option value="nobody">Nobody</option>
+                        </select>
+                      </label>
+                      <label className="block rounded-md border border-zinc-300 px-2 py-1">
+                        <span className="text-zinc-600">Who can message me</span>
+                        <select
+                          value={myPrivacy?.whoCanMessage ?? "everyone"}
+                          onChange={(event) =>
+                            void handleUpdateWhoCanMessage(
+                              event.target.value as "everyone" | "nobody",
+                            )
+                          }
+                          className="mt-1 w-full rounded border border-zinc-300 px-2 py-1"
+                        >
+                          <option value="everyone">Everyone</option>
+                          <option value="nobody">Nobody</option>
+                        </select>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -1475,191 +1623,6 @@ function ChatApp() {
                 )}
               </div>
 
-              <div ref={blockedUsersSectionRef} className="mt-3 border-t border-zinc-200 pt-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Blocked users
-                </h3>
-                {blockedUsers === undefined ? (
-                  <div className="mt-2 h-8 animate-pulse rounded-md bg-zinc-100" />
-                ) : blockedUsers.length === 0 ? (
-                  <p className="mt-2 text-xs text-zinc-500">No blocked users.</p>
-                ) : (
-                  <div className="mt-2 space-y-1">
-                    {blockedUsers.map((blockedUser) => (
-                      <div
-                        key={`blocked-${blockedUser._id}`}
-                        className="flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-zinc-100"
-                      >
-                        <span className="flex min-w-0 items-center gap-2">
-                          <Avatar
-                            name={blockedUser.name}
-                            imageUrl={blockedUser.imageUrl}
-                            size="sm"
-                          />
-                          <span className="truncate">{blockedUser.name}</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => void handleToggleBlock(blockedUser._id)}
-                          className="rounded border border-zinc-300 px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-100"
-                        >
-                          Unblock
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div ref={globalSearchSectionRef} className="mt-3 border-t border-zinc-200 pt-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Global search
-                </h3>
-                <input
-                  ref={globalSearchInputRef}
-                  value={globalSearch}
-                  onChange={(event) => setGlobalSearch(event.target.value)}
-                  placeholder="Search all chats"
-                  className="mt-2 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-xs outline-none ring-zinc-300 focus:ring"
-                />
-                <p className="mt-1 text-[10px] text-zinc-500">Shortcut: Ctrl/Cmd + K</p>
-                <select
-                  value={searchMediaType}
-                  onChange={(event) =>
-                    setSearchMediaType(
-                      event.target.value as "all" | "image" | "video" | "audio",
-                    )
-                  }
-                  className="mt-2 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-xs"
-                >
-                  <option value="all">All media</option>
-                  <option value="image">Images only</option>
-                  <option value="video">Videos only</option>
-                  <option value="audio">Audio only</option>
-                </select>
-                <select
-                  value={globalSenderId}
-                  onChange={(event) =>
-                    setGlobalSenderId(
-                      event.target.value === "all"
-                        ? "all"
-                        : (event.target.value as Id<"users">),
-                    )
-                  }
-                  className="mt-2 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-xs"
-                >
-                  <option value="all">All senders</option>
-                  {globalSenderOptions.map((row) => (
-                    <option key={`global-sender-${row.userId}`} value={row.userId}>
-                      {row.name}
-                    </option>
-                  ))}
-                </select>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <input
-                    type="date"
-                    value={globalFromDate}
-                    onChange={(event) => setGlobalFromDate(event.target.value)}
-                    className="rounded-md border border-zinc-300 px-2 py-1.5 text-xs"
-                  />
-                  <input
-                    type="date"
-                    value={globalToDate}
-                    onChange={(event) => setGlobalToDate(event.target.value)}
-                    className="rounded-md border border-zinc-300 px-2 py-1.5 text-xs"
-                  />
-                </div>
-                {globalSearchResults && globalSearchResults.length > 0 && (
-                  <div className="mt-2 max-h-28 space-y-1 overflow-y-auto">
-                    {globalSearchResults.slice(0, 8).map((row) => (
-                      <button
-                        key={`global-${row.messageId}`}
-                        type="button"
-                        onClick={() => selectConversation(row.conversationId)}
-                        className="w-full rounded-md border border-zinc-200 px-2 py-1 text-left text-[11px] hover:bg-zinc-50"
-                      >
-                        <p className="truncate font-medium">{row.conversationTitle}</p>
-                        <p className="truncate text-zinc-600">
-                          {row.body ||
-                            (row.mediaType === "image"
-                              ? "📷 Photo"
-                              : row.mediaType === "video"
-                                ? "🎬 Video"
-                                : row.mediaType === "audio"
-                                  ? "🎤 Voice"
-                                : "Message")}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {globalSearch.trim().length > 0 &&
-                  globalSearchResults !== undefined &&
-                  globalSearchResults.length === 0 && (
-                    <p className="mt-2 text-xs text-zinc-500">
-                      No global results for current filters.
-                    </p>
-                  )}
-              </div>
-
-              <div ref={privacySectionRef} className="mt-3 border-t border-zinc-200 pt-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Privacy & security
-                </h3>
-                <div className="mt-2 space-y-1 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => void handleToggleReadReceipts()}
-                    className="w-full rounded-md border border-zinc-300 px-2 py-1 text-left hover:bg-zinc-100"
-                  >
-                    Read receipts: {myPrivacy?.readReceiptsEnabled ? "On" : "Off"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleToggleLoginAlerts()}
-                    className="w-full rounded-md border border-zinc-300 px-2 py-1 text-left hover:bg-zinc-100"
-                  >
-                    Suspicious login alerts: {mySecurity?.suspiciousLoginAlerts ? "On" : "Off"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleToggleE2EE()}
-                    className="w-full rounded-md border border-zinc-300 px-2 py-1 text-left hover:bg-zinc-100"
-                  >
-                    E2EE mode (scaffold): {mySecurity?.e2eeEnabled ? "On" : "Off"}
-                  </button>
-                  <label className="block rounded-md border border-zinc-300 px-2 py-1">
-                    <span className="text-zinc-600">Last seen visibility</span>
-                    <select
-                      value={myPrivacy?.lastSeenVisibility ?? "everyone"}
-                      onChange={(event) =>
-                        void handleUpdateLastSeenVisibility(
-                          event.target.value as "everyone" | "nobody",
-                        )
-                      }
-                      className="mt-1 w-full rounded border border-zinc-300 px-2 py-1"
-                    >
-                      <option value="everyone">Everyone</option>
-                      <option value="nobody">Nobody</option>
-                    </select>
-                  </label>
-                  <label className="block rounded-md border border-zinc-300 px-2 py-1">
-                    <span className="text-zinc-600">Who can message me</span>
-                    <select
-                      value={myPrivacy?.whoCanMessage ?? "everyone"}
-                      onChange={(event) =>
-                        void handleUpdateWhoCanMessage(
-                          event.target.value as "everyone" | "nobody",
-                        )
-                      }
-                      className="mt-1 w-full rounded border border-zinc-300 px-2 py-1"
-                    >
-                      <option value="everyone">Everyone</option>
-                      <option value="nobody">Nobody</option>
-                    </select>
-                  </label>
-                </div>
-              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-2">
