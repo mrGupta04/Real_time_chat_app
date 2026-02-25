@@ -27,7 +27,9 @@ export default defineSchema({
     conversationId: v.id("conversations"),
     userId: v.id("users"),
     joinedAt: v.number(),
+    role: v.optional(v.union(v.literal("owner"), v.literal("admin"), v.literal("member"))),
     lastReadAt: v.optional(v.number()),
+    isDeleted: v.optional(v.boolean()),
   })
     .index("by_userId", ["userId"])
     .index("by_conversationId", ["conversationId"])
@@ -37,6 +39,11 @@ export default defineSchema({
     conversationId: v.id("conversations"),
     senderId: v.id("users"),
     body: v.string(),
+    replyToMessageId: v.optional(v.id("messages")),
+    mediaType: v.optional(
+      v.union(v.literal("image"), v.literal("video"), v.literal("audio")),
+    ),
+    mediaStorageId: v.optional(v.id("_storage")),
     createdAt: v.number(),
     deleted: v.optional(v.boolean()),
   }).index("by_conversationId_createdAt", ["conversationId", "createdAt"]),
@@ -57,4 +64,54 @@ export default defineSchema({
   })
     .index("by_messageId", ["messageId"])
     .index("by_messageId_userId_emoji", ["messageId", "userId", "emoji"]),
+
+  messageStars: defineTable({
+    messageId: v.id("messages"),
+    userId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_messageId", ["messageId"])
+    .index("by_userId", ["userId"])
+    .index("by_messageId_userId", ["messageId", "userId"]),
+
+  messageEdits: defineTable({
+    messageId: v.id("messages"),
+    editorId: v.id("users"),
+    previousBody: v.string(),
+    editedAt: v.number(),
+  }).index("by_messageId", ["messageId"]),
+
+  blocks: defineTable({
+    blockerId: v.id("users"),
+    blockedId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_blockerId", ["blockerId"])
+    .index("by_blockedId", ["blockedId"])
+    .index("by_blockerId_blockedId", ["blockerId", "blockedId"]),
+
+  privacySettings: defineTable({
+    userId: v.id("users"),
+    readReceiptsEnabled: v.boolean(),
+    lastSeenVisibility: v.union(v.literal("everyone"), v.literal("nobody")),
+    whoCanMessage: v.union(v.literal("everyone"), v.literal("nobody")),
+    updatedAt: v.number(),
+  }).index("by_userId", ["userId"]),
+
+  securitySettings: defineTable({
+    userId: v.id("users"),
+    suspiciousLoginAlerts: v.boolean(),
+    e2eeEnabled: v.boolean(),
+    updatedAt: v.number(),
+  }).index("by_userId", ["userId"]),
+
+  deviceSessions: defineTable({
+    userId: v.id("users"),
+    deviceName: v.string(),
+    userAgent: v.optional(v.string()),
+    ipAddress: v.optional(v.string()),
+    createdAt: v.number(),
+    lastSeenAt: v.number(),
+    isActive: v.boolean(),
+  }).index("by_userId", ["userId"]),
 });

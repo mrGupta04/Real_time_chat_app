@@ -17,7 +17,7 @@ export const updateTyping = mutation({
       )
       .unique();
 
-    if (!membership) {
+    if (!membership || membership.isDeleted) {
       throw new Error("Not found");
     }
 
@@ -63,7 +63,7 @@ export const listTypingUsers = query({
       )
       .unique();
 
-    if (!membership) {
+    if (!membership || membership.isDeleted) {
       throw new Error("Not found");
     }
 

@@ -19,6 +19,32 @@ A real-time one-on-one chat app where users can sign up, discover other users, a
 5. Empty states for no conversations, no messages, and no search results
 6. Responsive layout (desktop split view, mobile full-screen chat with back button)
 
+## Added Modern Chat Features
+
+- Real user identity rendering in chats (name + profile picture avatars)
+- User blocking and unblocking
+- Per-user chat deletion (hide a conversation from your list)
+- Expanded emoji reactions set
+- Media messaging: users can send images and short videos in chat
+- Reply to specific messages in conversations
+- Message status system for your messages: sent / delivered / read
+- Group "seen by" read receipt details (respects privacy settings)
+- Message editing with edited label and edit-history backend support
+- Starred (pinned-for-me) messages with quick jump in conversation
+- Global chat search and per-conversation search with media filters
+- Group admin controls: roles (owner/admin/member), add/remove members
+- Privacy controls: read-receipts toggle and who-can-message enforcement
+- Security scaffolding: suspicious login alerts settings + device session APIs
+- Voice notes: hold-to-record audio messages with playback speed controls
+- Live waveform visualization while recording voice notes
+- Message pagination with infinite history loading on scroll
+- Background media upload queue (image/video/audio)
+- Upload queue controls: per-file progress bars, retry/remove, and clear done/failed
+- Media rendering optimizations (`loading=lazy` images, metadata video/audio loading)
+- Search UI filters for sender and date range (global + per-conversation)
+- Edit history viewer panel for edited messages
+- Full privacy controls UI for read receipts, last seen visibility, and who-can-message
+
 ## Project Structure
 
 - `app/page.tsx`: Main chat UI and responsive behavior
